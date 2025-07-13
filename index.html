@@ -1,109 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>License Verification</title>
-    <style>
-        body {
-            background-color: #121212;
-            color: #fff;
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        input, button {
-            padding: 10px;
-            margin: 10px;
-            font-size: 16px;
-            width: 300px;
-        }
-        button {
-            background-color: #1e88e5;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #1565c0;
-        }
-        #result {
-            margin-top: 20px;
-            font-weight: bold;
-            text-align: center;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>License Verification</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      width: 300px;
+    }
+    button {
+      background-color: #1e88e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1565c0;
+    }
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
+      text-align: center;
+      white-space: pre-wrap;
+      max-width: 400px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Enter License Key</h1>
-    <input type="text" id="licenseKey" placeholder="License Key" />
-    <button id="verify">Verify</button>
-    <div id="result"></div>
+  <h1>Enter License Key</h1>
+  <input type="text" id="licenseKey" placeholder="License Key" />
+  <button id="verify">Verify</button>
+  <div id="result"></div>
 
-    <script>
-        document.getElementById("verify").addEventListener("click", async () => {
-            const licenseKey = document.getElementById("licenseKey").value.trim();
-            const resultDiv = document.getElementById("result");
+  <script>
+    async function testConnectivity() {
+      try {
+        // Try a public CORS-enabled API to verify network & CORS working
+        const res = await fetch('https://api.github.com');
+        if (!res.ok) throw new Error('Status ' + res.status);
+        return true;
+      } catch (e) {
+        console.error('Connectivity test failed:', e);
+        return false;
+      }
+    }
 
-            if (!licenseKey) {
-                resultDiv.textContent = "Please enter a license key.";
-                return;
-            }
+    document.getElementById('verify').addEventListener('click', async () => {
+      const licenseKey = document.getElementById('licenseKey').value.trim();
+      const resultDiv = document.getElementById('result');
 
-            // postData includes fixed hwid=1
-            const postData = "key=" + encodeURIComponent(licenseKey) +
-                             "&system=8de8bfd85f7e56fc292f" +
-                             "&hwid=1" +
-                             "&version=2";
+      if (!licenseKey) {
+        resultDiv.textContent = 'Please enter a license key.';
+        return;
+      }
 
-            try {
-                const response = await fetch("https://systemlocker.net/mikros.php", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    body: postData,
-                });
+      // Compose POST data string
+      const postData = `key=${encodeURIComponent(licenseKey)}&system=8de8bfd85f7e56fc292f&hwid=1&version=2`;
 
-                if (!response.ok) {
-                    resultDiv.textContent = "Error contacting server.";
-                    return;
-                }
+      // Check connectivity before actual request
+      const canConnect = await testConnectivity();
+      if (!canConnect) {
+        resultDiv.textContent = 'Network or CORS error: cannot reach external servers.';
+        return;
+      }
 
-                const result = await response.text();
-
-                if (result === "true") {
-                    resultDiv.textContent = "✅ License verified successfully!";
-                    // Optionally store licenseKey locally
-                    // localStorage.setItem("licenseKey", licenseKey);
-                } else if ([
-                    "false",
-                    "no u/p",
-                    "no sys",
-                    "not verified",
-                    "bad u/p",
-                    "bad keys",
-                    "expired key",
-                    "frozen",
-                    "hwid",
-                    "spoofsuspected",
-                    "outdated",
-                    "dbe",
-                    "no key"
-                ].includes(result)) {
-                    resultDiv.textContent = "❌ Verification failed: " + result;
-                } else {
-                    resultDiv.textContent = "⚠️ Unknown response: " + result;
-                }
-
-            } catch (error) {
-                console.error(error);
-                resultDiv.textContent = "Request failed.";
-            }
+      try {
+        const response = await fetch('https://systemlocker.net/mikros.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: postData,
         });
-    </script>
+
+        if (!response.ok) {
+          resultDiv.textContent = `Server returned HTTP error: ${response.status}`;
+          console.error('HTTP error:', response.status, response.statusText);
+          return;
+        }
+
+        const textResult = await response.text();
+        console.log('Server response:', textResult);
+
+        // Process server response
+        if (textResult === 'true') {
+          resultDiv.textContent = '✅ License verified successfully!';
+        } else if ([
+          'false', 'no u/p', 'no sys', 'not verified', 'bad u/p', 'bad keys',
+          'expired key', 'frozen', 'hwid', 'spoofsuspected', 'outdated',
+          'dbe', 'no key'
+        ].includes(textResult)) {
+          resultDiv.textContent = '❌ Verification failed: ' + textResult;
+        } else {
+          resultDiv.textContent = '⚠️ Unknown response: ' + textResult;
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+        resultDiv.textContent = 'Request failed: ' + error.message;
+      }
+    });
+  </script>
 </body>
 </html>
